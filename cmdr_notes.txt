@@ -1,0 +1,107 @@
+The following was posted in "cosmacelf" groups.io on Oct 11 2019
+by Chuck  AKA "cmdrcosmac" (not Chuck Yakym). Note that the "OUT" instruction is modified
+to accept a 2nd byte. When the X register is the same as the program register,
+the OUT instruction uses the following program byte as an output value. Likewise
+the DIS instruction uses the following program byte as an output value. And,
+in early RCA 1802 assemblers, the ".." preceeds comments. 
+- Herb Johnson Oct 13 2019
+
+I now have a working adaptation of IDIOT for use with a UART.
+The mods are simple. They poll the UART status register 'till
+a byte comes in or the transmitter register is empty, then do
+an I/O to the data register.
+
+ First,the equates for the I/O are defined...
+
+0000 ;               0067      .. I/O
+0000 ;               0068      ..
+0000 ;               0069             UCTRL= #03     .. UART CTRL/STATUS REGISTER
+0000 ;               0070             UDATA= #02     .. UART DATA REGISTER
+0000 ;               0071             GSEL= #07     .. SYSTEM I/O GROUP SELECT REGISTER (ADDED HARDWARE)
+0000 ;               0072             UGRP= #01     .. I/O GROUP CONTAINING THE UART
+
+ Next, the Group register and the UART control register are initialized.
+ 
+0000 71;             0089  RESET:     DIS       ..   DISABLE INTERRUPTS
+0001 00;             0090             ,#00
+0002 6701;           0091             OUT GSEL ,UGRP     .. SETUP I/O GROUP
+0004 6313;           0092             OUT UCTRL ,7N1     .. 7 BITS DATA, NO PARITY, 1 STOPBIT
+
+ The READ patch is placed... Note the reader control code commented out.
+Note the BR BZ, the ORG statement, and the BZ label. This is so the original code
+stays where it was.
+
+0148 ;               0343      .. LSNZ    .. IF TTYRED,
+0148 ;               0344      .. OUT 7    .. TURN READER ON
+0148 ;               0345      .. ,#80
+0148 ;               0346      ..
+0148 ;               0347      .. UART INPUT CODE HERE
+0148 ;               0348      ..
+0148 E2;             0349             SEX SP
+0149 6B;             0350  KEY1:      INP UCTRL           ..  GET DA BIT FROM
+014A F6;             0351             SHR     .. UART STATUS BYTE
+014B 3B49;           0352             BNF KEY1     .. WAIT 'TILL DATA AVAIL.
+014D ;               0353      ..
+014D 12;             0354             INC SP
+014E 6A;             0355             INP UDATA     .. GET DATA
+014F 52;             0356             STR SP
+0150 62;             0357             OUT UDATA     .. ECHO
+0151 22;             0358             DEC SP
+0152 BF;             0359             PHI ASCII
+0153 22;             0360             DEC SP
+0154 3079;           0361             BR BZ
+0156 ;               0362 
+0156 ;               0363             ORG= (RESET + #0179)     .. CONTINUATION OF ORIGINAL CODE
+0179 ;               0364      ..
+0179 3243;           0365  BZ:        BZ READ2      ..   REPEAT IF 00=NULL
+                                ..    (Original code continues)
+
+ The TYPE patch is placed. as above, a branch instruction and an ORG statement keep
+things where they belong.
+
+01BE F80B;           0455  TY2:       LDI #0B      ..     ELSE SET CODE=BYTE, 11 BITS
+01C0 AF;             0456  TY3:       PLO ASCII      ..   SAVE CODE BYTE
+01C1 ;               0457 
+01C1 ;               0458      ..
+01C1 ;               0459      .. BEGIN SERIAL OUTPUT (DELAY + 44 MACHINE CYCLES PER LOOP)
+01C1 ;               0460      .. NO DELAY ANYMORE, THE CODE BELOW DRIVES THE UART.
+01C1 ;               0461      ..
+01C1 ;               0462 
+01C1 E2;             0463  BEGIN2:    SEX SP
+01C2 6B;             0464             INP UCTRL     .. Check UART ready.
+01C3 FE;             0465             SHL
+01C4 3BC1;           0466             BNF BEGIN2
+01C6 ;               0467      ..
+01C6 12;             0468  OUTPUT:    INC SP
+01C7 8D;             0469             GLO D
+01C8 52;             0470             STR SP
+01C9 62;             0471             OUT UDATA     .. Send character from stack.
+01CA 22;             0472             DEC SP
+01CB 22;             0473             DEC SP
+01CC 8F;             0474             GLO ASCII
+01CD FF0B;           0475             SMI #0B
+01CF AF;             0476             PLO ASCII
+01D0 30DD;           0477             BR NXCHAR
+01D2 ;               0478      ..
+01D2 ;               0479             ORG= (RESET + #01DD)     .. CONTINUATION OF ORIGINAL CODE
+01DD ;               0480      ..
+01DD 8F;             0481  NXCHAR:    GLO ASCII      ..   GET CODE BYTE;
+                                ..    (Original code continues)
+
+ Then TIMALC and DELAY can be removed. Then patch the SEP instruction so you go straight to the
+monitor.
+
+00BD B3;             0249          PHI    3        ..  CALL TIMALC; IT RETURNS WITH "SEP R5",
+00BE ;               0250      ..    SEP    3        ..  SO IT WILL RETURN TO "ENTRY"
+00BE D5;             0251          SEP    5        .. Straight to Monitor.
+
+The SEP 3 originally went to TIMALC, which then did a SEP 5, and went to the Monitor.
+We now do a SEP 5, straight to the Monitor.
+
+Note that Jeff's hardware uses the flags to sense the /DA and /THRE, whereas this code reads the
+UART status register shifts, and branches on the DF. THis way, Mode 1 is utilized, and the flags
+are freed up.
+
+All the original ORG statements are left unchanged.
+If you try this, let us know how it works.
+-Chuck
