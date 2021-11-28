@@ -194,11 +194,11 @@ SAVER   GLO     RF              ; SAVE REGISTERS R0-RF IN RAM
         STXD
         SAV                     ; PUSH T INTO RAM
         DEC     R4
-        LDI     LOW IFINT       ; IF CALLED VIA INTERRUPT, RETURN
+        LDI     LOW(IFINT)      ; IF CALLED VIA INTERRUPT, RETURN
         PLO     R1
         GHI     R0              ; ELSE CALLED VIA RESET,
         PHI     R1              ; SET RP=R1
-        LDI     LOW . + 4
+        LDI     LOW(. + 4)
         PLO     R1
         SEP     R1
         LDI     0               ; PUSH STATUS=0
@@ -206,7 +206,7 @@ SAVER   GLO     RF              ; SAVE REGISTERS R0-RF IN RAM
 ; 
 ; 
 CONTINIT
-        LDI     LOW CHANGE      ; COPY CODE THAT CHANGES TO THE DESIRED PC
+        LDI     LOW(CHANGE)     ; COPY CODE THAT CHANGES TO THE DESIRED PC
         PLO     R5              ; FOR A $R COMMAND. THE CODE GOES TO 35 BYTES
         GHI     R1              ; BEFORE "SAVEREG" MEMORY
         ADI     3
@@ -224,18 +224,20 @@ INITLOOP
         BNZ     INITLOOP
         GHI     R4              ; INITIALIZE R2 (STACK POINTER)
         PHI     R2
+        LDI     $FF
+        PLO     R2
         LDI     $C3             ; CORRECT STORED VALUE OF R1
         PLO     R4
-        LDI     LOW INTERUPT
+        LDI     LOW(INTERUPT)
         STXD
         GHI     R1
         STXD
         GHI     R1              ; LOAD R5 WITH ADDRESS OF "ENTRY"
         ADI     1
         PHI     R5
-        LDI     LOW ENTRY
+        LDI     LOW(ENTRY)
         PLO     R5
-        LDI     $FE             ; Wait for a CR
+        LDI     LOW(WAITCR)     ; Wait for a CR
         PLO     R3
         GHI     R1
         PHI     R3              ; CALL TIMALC; IT RETURNS WITH "SEP R5", -- DEPRECATED ; SO IT WILL RETURN TO "ENTRY"
@@ -286,14 +288,11 @@ IFINT   LDI     $10             ; RETURN ERE:
 NORAM   GHI     R0              ; NO RAM:     CAN'T SAVE REGISTERS
         ADI     1
         PHI     R3
-        LDI     LOW ENTRY       ; CHANGE PROGRAM COUNTER TO R3
+        LDI     LOW(ENTRY)       ; CHANGE PROGRAM COUNTER TO R3
         PLO     R3
         SEX     R2              ; STACK POINTER TO R2
         SEP     R3              ; GO TO IDIOT/2
 ; 
-        ORG     RESET + $FE
-        NOP
-        NOP
 WAITCR  SEQ
         INP     UART
         SHR
@@ -352,13 +351,10 @@ KEY1    INP     UART            ; GET DA BIT FROM
         BNF     KEY1            ; WAIT 'TILL DATA AVAIL.
         REQ
 ; 
-        INC     SP
         INP     UART            ; GET DATA
-        STR     SP
         OUT     UART            ; ECHO
         DEC     SP
         PHI     ASCII
-        DEC     SP
         BR      BZ
 
         ORG     RESET + $0179   ; CONTINUATION OF ORIGINAL CODE
@@ -468,11 +464,9 @@ BEGIN2  SEX     SP
         SHL
         BNF     BEGIN2
 ; 
-OUTPUT  INC     SP
-        GLO     RD
+OUTPUT  GLO     RD
         STR     SP          
         OUT     UART            ; Send character from stack.
-        DEC     SP
         DEC     SP
         GLO     ASCII
         SMI     $0B
@@ -553,7 +547,7 @@ HX22    PLO     RD              ; LOAD BYTE
 ; 
 ENTRY   GHI     R5              ; SET A POINTER TO TYPE5D
         PHI     R3
-        LDI     LOW TYPE5D
+        LDI     LOW(TYPE5D)
         PLO     R3              ; TYPE "SIGNON" MESSAGE:
         TYPA    13              ; <CR>
         TYPA    10              ; <LF>
@@ -567,7 +561,7 @@ ENTRY   GHI     R5              ; SET A POINTER TO TYPE5D
 RESTART GHI     R5
         SMI     1
         PHI     R3
-        LDI     LOW TYPE5D
+        LDI     LOW(TYPE5D)
         PLO     R3              ; TYPE "PROMPT" MESSAGE:
         TYPA    13              ; <CR>
         TYPA    10              ; <LF>
@@ -575,7 +569,7 @@ RESTART GHI     R5
 IGNORE  LDI     0
         PHI     HEXX            ; SET HEXX=0
         PLO     HEXX
-        LDI     LOW READAH      ; REPEAT; .
+        LDI     LOW(READAH)      ; REPEAT; .
         PLO     R3
         SEP     R3              ; -GET A KEY
         XRI     '$'             ; -IF "$"
@@ -645,7 +639,7 @@ RD5     XRI     '!'             ; IF "!",
 ; TYPE SPECIFIED DATA.
 ; 
 ; 
-RD4     LDI     LOW TYPE5D
+RD4     LDI     LOW(TYPE5D)
         PLO     R3
 NXLINE  TYPA    10              ; TYPE <LF>
 ; 
@@ -653,18 +647,18 @@ NXLINE  TYPA    10              ; TYPE <LF>
 ; 
 LINE1   GHI     RA              ; TYPE ADDRESS OF POINTER:
         PHI     ASCII
-        LDI     LOW TYPE2
+        LDI     LOW(TYPE2)
         PLO     R3
         SEP     R3              ; UPPER BYTE
         GLO     RA
         PHI     ASCII
-        LDI     LOW TYPE2
+        LDI     LOW(TYPE2)
         PLO     R3
         SEP     R3              ; LOWER BYTE
         TYPA    $20             ; TYPE A "SPACE"
 TLOOP   LDA     RA              ; GET BYTE @ POINTER, & ADVANCE POINTER
         PHI     ASCII
-        LDI     LOW TYPE2       ; TYPE BYTE
+        LDI     LOW(TYPE2)      ; TYPE BYTE
         PLO     R3
         SEP     R3
         DEC     R8              ; DECREMENT #BYTES
@@ -710,7 +704,7 @@ EX4     XRI     $21             ; IF <,>,
 ; SYNTAX ERROR
 ; 
 ; 
-SYNERR  LDI     LOW TYPE5D      ; POINT TO TYPE5D
+SYNERR  LDI     LOW(TYPE5D)     ; POINT TO TYPE5D
         PLO     R3
         TYPA    $0D             ; TYPE <CR>
         TYPA    $0A             ; <LF>
@@ -740,7 +734,7 @@ D1      SEP     R3              ; GET NEXT KEY
         PHI     R0
         GLO     HEXX
         PLO     R0
-        LDI     LOW TYPE5D      ; TYPE <LF>
+        LDI     LOW(TYPE5D)     ; TYPE <LF>
         PLO     R3
         TYPA    $0A
         GLO     R8              ; IF SWITCH>0,
@@ -750,7 +744,7 @@ D1      SEP     R3              ; GET NEXT KEY
 ; $P COMMAND: BEGIN EXECUTION AT SPECIFIED ADDRESS WITH P=X=0, IE=1
 ; 
 ; 
-        LDI     LOW INTERUPT   ; SET R1 FOR BREAKPOINT INTERRUPT
+        LDI     LOW(INTERUPT)  ; SET R1 FOR BREAKPOINT INTERRUPT
         PLO     R1
         GHI     R5
         SMI     2

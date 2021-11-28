@@ -2,12 +2,13 @@
 *.bak
 *~
 *.tmp
+.kateproject
 
 # Assembler output files
 *.bin
 *.hex
 *.lst
-*.idi
+*.idiot
 
 # KDevelop project files
 .kdev4/
